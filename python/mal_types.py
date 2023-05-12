@@ -10,10 +10,7 @@ else:
         return codecs.unicode_escape_decode(x)[0]
 
 
-if sys.version_info[0] >= 3:
-    str_types = [str]
-else:
-    str_types = [str, unicode]
+str_types = [str] if sys.version_info[0] >= 3 else [str, unicode]
 
 # General functions
 
@@ -25,9 +22,7 @@ def _equal_Q(a, b):
         return a == b
     elif _list_Q(a) or _vector_Q(a):
         if len(a) != len(b): return False
-        for i in range(len(a)):
-            if not _equal_Q(a[i], b[i]): return False
-        return True
+        return all(_equal_Q(a[i], b[i]) for i in range(len(a)))
     elif _hash_map_Q(a):
         akeys = a.keys()
         akeys.sort()
@@ -44,18 +39,16 @@ def _equal_Q(a, b):
 def _sequential_Q(seq): return _list_Q(seq) or _vector_Q(seq)
 
 def _clone(obj):
-    #if type(obj) == type(lambda x:x):
-    if type(obj) == pytypes.FunctionType:
-        if obj.__code__:
-            return pytypes.FunctionType(
-                    obj.__code__, obj.__globals__, name = obj.__name__,
-                    argdefs = obj.__defaults__, closure = obj.__closure__)
-        else:
-            return pytypes.FunctionType(
-                    obj.func_code, obj.func_globals, name = obj.func_name,
-                    argdefs = obj.func_defaults, closure = obj.func_closure)
-    else:
+    if type(obj) != pytypes.FunctionType:
         return copy.copy(obj)
+    if obj.__code__:
+        return pytypes.FunctionType(
+                obj.__code__, obj.__globals__, name = obj.__name__,
+                argdefs = obj.__defaults__, closure = obj.__closure__)
+    else:
+        return pytypes.FunctionType(
+                obj.func_code, obj.func_globals, name = obj.func_name,
+                argdefs = obj.func_defaults, closure = obj.func_closure)
 
 
 # Scalars
@@ -72,8 +65,7 @@ def _symbol_Q(exp): return type(exp) == Symbol
 # Keywords
 # A specially prefixed string
 def _keyword(str):
-    if str[0] == u("\u029e"): return str
-    else:                     return u("\u029e") + str
+    return str if str[0] == u("\u029e") else u("\u029e") + str
 def _keyword_Q(exp):
     return _string_Q(exp) and exp[0] == u("\u029e")
 

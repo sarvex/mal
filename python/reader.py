@@ -13,10 +13,7 @@ class Reader():
         return self.tokens[self.position-1]
 
     def peek(self):
-        if len(self.tokens) > self.position:
-            return self.tokens[self.position]
-        else:
-            return None
+        return self.tokens[self.position] if len(self.tokens) > self.position else None
 
 def tokenize(str):
     tre = re.compile(r"""[\s,]*(~@|[\[\]{}()'`~^@]|"(?:[\\].|[^\\"])*"|;.*|[^\s\[\]{}()'"`@,;]+)""");
@@ -38,11 +35,13 @@ def read_atom(reader):
 def read_sequence(reader, typ=list, start='(', end=')'):
     ast = typ()
     token = reader.next()
-    if token != start: raise Exception("expected '" + start + "'")
+    if token != start:
+        raise Exception(f"expected '{start}'")
 
     token = reader.peek()
     while token != end:
-        if not token: raise Exception("expected '" + end + "', got EOF")
+        if not token:
+            raise Exception(f"expected '{end}', got EOF")
         ast.append(read_form(reader))
         token = reader.peek()
     reader.next()

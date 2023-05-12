@@ -72,16 +72,12 @@ class Runner():
                 new_data = self.stdout.read(1)
                 #print "new_data: '%s'" % new_data
                 new_data = new_data.decode("utf-8") if IS_PY_3 else new_data
-                if self.no_pty:
-                    self.buf += new_data.replace("\n", "\r\n")
-                else:
-                    self.buf += new_data
+                self.buf += new_data.replace("\n", "\r\n") if self.no_pty else new_data
                 for prompt in prompts:
                     regexp = re.compile(prompt)
-                    match = regexp.search(self.buf)
-                    if match:
+                    if match := regexp.search(self.buf):
                         end = match.end()
-                        buf = self.buf[0:end-len(prompt)]
+                        buf = self.buf[:end-len(prompt)]
                         self.buf = self.buf[end:]
                         self.last_prompt = prompt
                         return buf
@@ -123,12 +119,12 @@ def read_test(data):
         line = data.pop(0)
         if re.match(r"^\s*$", line):   # blank line
             continue
-        elif line[0:3] == ";;;":       # ignore comment
+        elif line[:3] == ";;;":       # ignore comment
             continue
-        elif line[0:2] == ";;":        # output comment
+        elif line[:2] == ";;":        # output comment
             print(line[3:])
             continue
-        elif line[0:2] == ";":         # unexpected comment
+        elif line[:2] == ";":         # unexpected comment
             print("Test data error at line %d:\n%s" % (test_idx, line))
             return None, None, None, test_idx
         form = line   # the line is a form to send
@@ -136,12 +132,12 @@ def read_test(data):
         # Now find the output and return value
         while data:
             line = data[0]
-            if line[0:3] == ";=>":
+            if line[:3] == ";=>":
                 ret = line[3:].replace('\\r', '\r').replace('\\n', '\n')
                 test_idx += 1
                 data.pop(0)
                 break
-            elif line[0:2] == "; ":
+            elif line[:2] == "; ":
                 output = output + line[2:] + sep
                 test_idx += 1
                 data.pop(0)
@@ -155,13 +151,13 @@ def read_test(data):
 def assert_prompt(timeout):
     # Wait for the initial prompt
     header = r.read_to_prompt(['user> ', 'mal-user> '], timeout=timeout)
-    if not header == None:
-        if header:
-            print("Started with:\n%s" % header)
-    else:
+    if header is None:
         print("Did not get 'user> ' or 'mal-user> ' prompt")
-        print("    Got      : %s" % repr(r.buf))
+        print(f"    Got      : {repr(r.buf)}")
         sys.exit(1)
+
+    elif header:
+        print("Started with:\n%s" % header)
 
 
 # Wait for the initial prompt
@@ -169,7 +165,7 @@ assert_prompt(args.start_timeout)
 
 # Send the pre-eval code if any
 if args.pre_eval:
-    sys.stdout.write("RUNNING pre-eval: %s" % args.pre_eval)
+    sys.stdout.write(f"RUNNING pre-eval: {args.pre_eval}")
     p.write(args.pre_eval)
     assert_prompt(args.test_timeout)
 
@@ -177,11 +173,11 @@ fail_cnt = 0
 
 while test_data:
     form, out, ret, line_num = read_test(test_data)
-    if form == None:
+    if form is None:
         break
-    sys.stdout.write("TEST: %s -> [%s,%s]" % (form, repr(out), repr(ret)))
+    sys.stdout.write(f"TEST: {form} -> [{repr(out)},{repr(ret)}]")
     sys.stdout.flush()
-    expected = "%s%s%s%s" % (form, sep, out, ret)
+    expected = f"{form}{sep}{out}{ret}"
 
     r.writeline(form)
     try:
@@ -193,8 +189,8 @@ while test_data:
             print(" -> SUCCESS")
         else:
             print(" -> FAIL (line %d):" % line_num)
-            print("    Expected : %s" % repr(expected))
-            print("    Got      : %s" % repr(res))
+            print(f"    Expected : {repr(expected)}")
+            print(f"    Got      : {repr(res)}")
             fail_cnt += 1
     except KeyboardInterrupt:
         print("\nKeyboard interrupt.")

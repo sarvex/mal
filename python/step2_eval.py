@@ -13,7 +13,7 @@ def eval_ast(ast, env):
         try:
             return env[ast]
         except:
-            raise Exception("'" + ast + "' not found")
+            raise Exception(f"'{ast}' not found")
     elif types._list_Q(ast):
         return types._list(*map(lambda a: EVAL(a, env), ast))
     elif types._vector_Q(ast):
@@ -21,8 +21,7 @@ def eval_ast(ast, env):
     elif types._hash_map_Q(ast):
         keyvals = []
         for k in ast.keys():
-            keyvals.append(EVAL(k, env))
-            keyvals.append(EVAL(ast[k], env))
+            keyvals.extend((EVAL(k, env), EVAL(ast[k], env)))
         return types._hash_map(*keyvals)
     else:
         return ast  # primitive value, return unchanged
@@ -54,7 +53,7 @@ repl_env['/'] = lambda a,b: int(a/b)
 while True:
     try:
         line = mal_readline.readline("user> ")
-        if line == None: break
+        if line is None: break
         if line == "": continue
         print(REP(line))
     except reader.Blank: continue

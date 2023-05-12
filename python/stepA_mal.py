@@ -50,8 +50,7 @@ def eval_ast(ast, env):
     elif types._hash_map_Q(ast):
         keyvals = []
         for k in ast.keys():
-            keyvals.append(EVAL(k, env))
-            keyvals.append(EVAL(ast[k], env))
+            keyvals.extend((EVAL(k, env), EVAL(ast[k], env)))
         return types._hash_map(*keyvals)
     else:
         return ast  # primitive value, return unchanged
@@ -68,76 +67,69 @@ def EVAL(ast, env):
         if len(ast) == 0: return ast
         a0 = ast[0]
 
-        if "def!" == a0:
+        if a0 == 'defmacro!':
+            func = EVAL(ast[2], env)
+            func._ismacro_ = True
+            return env.set(ast[1], func)
+        elif a0 == 'macroexpand':
+            return macroexpand(ast[1], env)
+        elif a0 == ".":
+            el = eval_ast(ast[2:], env)
+            f = eval(ast[1])
+            return f(*el)
+        elif a0 == "def!":
             a1, a2 = ast[1], ast[2]
             res = EVAL(a2, env)
             return env.set(a1, res)
-        elif "let*" == a0:
+        elif a0 == "do":
+            eval_ast(ast[1:-1], env)
+            ast = ast[-1]
+        elif a0 == "fn*":
+            a1, a2 = ast[1], ast[2]
+            return types._function(EVAL, Env, a2, env, a1)
+        elif a0 == "if":
+            a1, a2 = ast[1], ast[2]
+            cond = EVAL(a1, env)
+            if cond is None or cond is False:
+                ast = ast[3] if len(ast) > 3 else None
+            else:
+                ast = a2
+        elif a0 == "let*":
             a1, a2 = ast[1], ast[2]
             let_env = Env(env)
             for i in range(0, len(a1), 2):
                 let_env.set(a1[i], EVAL(a1[i+1], let_env))
             ast = a2
             env = let_env
-            # Continue loop (TCO)
-        elif "quote" == a0:
-            return ast[1]
-        elif "quasiquote" == a0:
-            ast = quasiquote(ast[1]);
-            # Continue loop (TCO)
-        elif 'defmacro!' == a0:
-            func = EVAL(ast[2], env)
-            func._ismacro_ = True
-            return env.set(ast[1], func)
-        elif 'macroexpand' == a0:
-            return macroexpand(ast[1], env)
-        elif "py!*" == a0:
+        elif a0 == "py!*":
             if sys.version_info[0] >= 3:
                 exec(compile(ast[1], '', 'single'), globals())
             else:
                 exec(compile(ast[1], '', 'single') in globals())
             return None
-        elif "py*" == a0:
+        elif a0 == "py*":
             return eval(ast[1])
-        elif "." == a0:
-            el = eval_ast(ast[2:], env)
-            f = eval(ast[1])
-            return f(*el)
-        elif "try*" == a0:
+        elif a0 == "quasiquote":
+            ast = quasiquote(ast[1]);
+        elif a0 == "quote":
+            return ast[1]
+        elif a0 == "try*":
             a1, a2 = ast[1], ast[2]
-            if a2[0] == "catch*":
-                try:
-                    return EVAL(a1, env);
-                except Exception as exc:
-                    exc = exc.args[0]
-                    catch_env = Env(env, [a2[1]], [exc])
-                    return EVAL(a2[2], catch_env)
-            else:
+            if a2[0] != "catch*":
                 return EVAL(a1, env);
-        elif "do" == a0:
-            eval_ast(ast[1:-1], env)
-            ast = ast[-1]
-            # Continue loop (TCO)
-        elif "if" == a0:
-            a1, a2 = ast[1], ast[2]
-            cond = EVAL(a1, env)
-            if cond is None or cond is False:
-                if len(ast) > 3: ast = ast[3]
-                else:            ast = None
-            else:
-                ast = a2
-            # Continue loop (TCO)
-        elif "fn*" == a0:
-            a1, a2 = ast[1], ast[2]
-            return types._function(EVAL, Env, a2, env, a1)
+            try:
+                return EVAL(a1, env);
+            except Exception as exc:
+                exc = exc.args[0]
+                catch_env = Env(env, [a2[1]], [exc])
+                return EVAL(a2[2], catch_env)
         else:
             el = eval_ast(ast, env)
             f = el[0]
-            if hasattr(f, '__ast__'):
-                ast = f.__ast__
-                env = f.__gen_env__(el[1:])
-            else:
+            if not hasattr(f, '__ast__'):
                 return f(*el[1:])
+            ast = f.__ast__
+            env = f.__gen_env__(el[1:])
 
 # print
 def PRINT(exp):
@@ -161,7 +153,7 @@ REP("(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (
 REP("(defmacro! or (fn* (& xs) (if (empty? xs) nil (if (= 1 (count xs)) (first xs) `(let* (or_FIXME ~(first xs)) (if or_FIXME or_FIXME (or ~@(rest xs))))))))")
 
 if len(sys.argv) >= 2:
-    REP('(load-file "' + sys.argv[1] + '")')
+    REP(f'(load-file "{sys.argv[1]}")')
     sys.exit(0)
 
 # repl loop
@@ -169,7 +161,7 @@ REP("(println (str \"Mal [\" *host-language* \"]\"))")
 while True:
     try:
         line = mal_readline.readline("user> ")
-        if line == None: break
+        if line is None: break
         if line == "": continue
         print(REP(line))
     except reader.Blank: continue

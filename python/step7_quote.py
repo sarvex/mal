@@ -38,8 +38,7 @@ def eval_ast(ast, env):
     elif types._hash_map_Q(ast):
         keyvals = []
         for k in ast.keys():
-            keyvals.append(EVAL(k, env))
-            keyvals.append(EVAL(ast[k], env))
+            keyvals.extend((EVAL(k, env), EVAL(ast[k], env)))
         return types._hash_map(*keyvals)
     else:
         return ast  # primitive value, return unchanged
@@ -54,39 +53,34 @@ def EVAL(ast, env):
         if len(ast) == 0: return ast
         a0 = ast[0]
 
-        if "def!" == a0:
+        if a0 == "def!":
             a1, a2 = ast[1], ast[2]
             res = EVAL(a2, env)
             return env.set(a1, res)
-        elif "let*" == a0:
+        elif a0 == "do":
+            eval_ast(ast[1:-1], env)
+            ast = ast[-1]
+        elif a0 == "fn*":
+            a1, a2 = ast[1], ast[2]
+            return types._function(EVAL, Env, a2, env, a1)
+        elif a0 == "if":
+            a1, a2 = ast[1], ast[2]
+            cond = EVAL(a1, env)
+            if cond is None or cond is False:
+                ast = ast[3] if len(ast) > 3 else None
+            else:
+                ast = a2
+        elif a0 == "let*":
             a1, a2 = ast[1], ast[2]
             let_env = Env(env)
             for i in range(0, len(a1), 2):
                 let_env.set(a1[i], EVAL(a1[i+1], let_env))
             ast = a2
             env = let_env
-            # Continue loop (TCO)
-        elif "quote" == a0:
-            return ast[1]
-        elif "quasiquote" == a0:
+        elif a0 == "quasiquote":
             ast = quasiquote(ast[1]);
-            # Continue loop (TCO)
-        elif "do" == a0:
-            eval_ast(ast[1:-1], env)
-            ast = ast[-1]
-            # Continue loop (TCO)
-        elif "if" == a0:
-            a1, a2 = ast[1], ast[2]
-            cond = EVAL(a1, env)
-            if cond is None or cond is False:
-                if len(ast) > 3: ast = ast[3]
-                else:            ast = None
-            else:
-                ast = a2
-            # Continue loop (TCO)
-        elif "fn*" == a0:
-            a1, a2 = ast[1], ast[2]
-            return types._function(EVAL, Env, a2, env, a1)
+        elif a0 == "quote":
+            return ast[1]
         else:
             el = eval_ast(ast, env)
             f = el[0]
@@ -115,14 +109,14 @@ REP("(def! not (fn* (a) (if a false true)))")
 REP("(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))")
 
 if len(sys.argv) >= 2:
-    REP('(load-file "' + sys.argv[1] + '")')
+    REP(f'(load-file "{sys.argv[1]}")')
     sys.exit(0)
 
 # repl loop
 while True:
     try:
         line = mal_readline.readline("user> ")
-        if line == None: break
+        if line is None: break
         if line == "": continue
         print(REP(line))
     except reader.Blank: continue

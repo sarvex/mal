@@ -20,49 +20,47 @@ def eval_ast(ast, env):
     elif types._hash_map_Q(ast):
         keyvals = []
         for k in ast.keys():
-            keyvals.append(EVAL(k, env))
-            keyvals.append(EVAL(ast[k], env))
+            keyvals.extend((EVAL(k, env), EVAL(ast[k], env)))
         return types._hash_map(*keyvals)
     else:
         return ast  # primitive value, return unchanged
 
 def EVAL(ast, env):
-        #print("EVAL %s" % printer._pr_str(ast))
-        if not types._list_Q(ast):
-            return eval_ast(ast, env)
+    #print("EVAL %s" % printer._pr_str(ast))
+    if not types._list_Q(ast):
+        return eval_ast(ast, env)
 
-        # apply list
-        if len(ast) == 0: return ast
-        a0 = ast[0]
+    # apply list
+    if len(ast) == 0: return ast
+    a0 = ast[0]
 
-        if "def!" == a0:
-            a1, a2 = ast[1], ast[2]
-            res = EVAL(a2, env)
-            return env.set(a1, res)
-        elif "let*" == a0:
-            a1, a2 = ast[1], ast[2]
-            let_env = Env(env)
-            for i in range(0, len(a1), 2):
-                let_env.set(a1[i], EVAL(a1[i+1], let_env))
-            return EVAL(a2, let_env)
-        elif "do" == a0:
-            el = eval_ast(ast[1:], env)
-            return el[-1]
-        elif "if" == a0:
-            a1, a2 = ast[1], ast[2]
-            cond = EVAL(a1, env)
-            if cond is None or cond is False:
-                if len(ast) > 3: return EVAL(ast[3], env)
-                else:            return None
-            else:
-                return EVAL(a2, env)
-        elif "fn*" == a0:
-            a1, a2 = ast[1], ast[2]
-            return types._function(EVAL, Env, a2, env, a1)
+    if a0 == "def!":
+        a1, a2 = ast[1], ast[2]
+        res = EVAL(a2, env)
+        return env.set(a1, res)
+    elif a0 == "do":
+        el = eval_ast(ast[1:], env)
+        return el[-1]
+    elif a0 == "fn*":
+        a1, a2 = ast[1], ast[2]
+        return types._function(EVAL, Env, a2, env, a1)
+    elif a0 == "if":
+        a1, a2 = ast[1], ast[2]
+        cond = EVAL(a1, env)
+        if cond is None or cond is False:
+            return EVAL(ast[3], env) if len(ast) > 3 else None
         else:
-            el = eval_ast(ast, env)
-            f = el[0]
-            return f(*el[1:])
+            return EVAL(a2, env)
+    elif a0 == "let*":
+        a1, a2 = ast[1], ast[2]
+        let_env = Env(env)
+        for i in range(0, len(a1), 2):
+            let_env.set(a1[i], EVAL(a1[i+1], let_env))
+        return EVAL(a2, let_env)
+    else:
+        el = eval_ast(ast, env)
+        f = el[0]
+        return f(*el[1:])
 
 # print
 def PRINT(exp):
@@ -83,7 +81,7 @@ REP("(def! not (fn* (a) (if a false true)))")
 while True:
     try:
         line = mal_readline.readline("user> ")
-        if line == None: break
+        if line is None: break
         if line == "": continue
         print(REP(line))
     except reader.Blank: continue

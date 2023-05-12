@@ -13,7 +13,7 @@ def _pr_str(obj, print_readably=True):
         return "{" + " ".join(ret) + "}"
     elif types._string_Q(obj):
         if len(obj) > 0 and obj[0] == types.u('\u029e'):
-            return ':' + obj[1:]
+            return f':{obj[1:]}'
         elif print_readably:
             return '"' + obj.encode('unicode_escape').decode('latin1').replace('"', '\\"') + '"'
         else:
@@ -25,7 +25,7 @@ def _pr_str(obj, print_readably=True):
     elif types._false_Q(obj):
         return "false"
     elif types._atom_Q(obj):
-        return "(atom " + _pr_str(obj.val,_r) + ")"
+        return f"(atom {_pr_str(obj.val, _r)})"
     else:
         return obj.__str__()
 

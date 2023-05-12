@@ -41,10 +41,7 @@ def dissoc(src_hm, *keys):
     return hm
 
 def get(hm, key):
-    if hm and key in hm:
-        return hm[key]
-    else:
-        return None
+    return hm[key] if hm and key in hm else None
 
 def contains_Q(hm, key): return key in hm
 
@@ -71,8 +68,7 @@ def rest(lst): return List(lst[1:])
 def empty_Q(lst): return len(lst) == 0
 
 def count(lst):
-    if types._nil_Q(lst): return 0
-    else: return len(lst)
+    return 0 if types._nil_Q(lst) else len(lst)
 
 # retains metadata
 def conj(lst, *args):
@@ -84,7 +80,8 @@ def conj(lst, *args):
         new_lst.__meta__ = lst.__meta__
     return new_lst
 
-def apply(f, *args): return f(*(list(args[0:-1])+args[-1]))
+def apply(f, *args):
+    return f(*list(args[:-1]) + args[-1])
 
 def mapf(f, lst): return List(map(f, lst))
 
@@ -96,8 +93,7 @@ def with_meta(obj, meta):
     return new_obj
 
 def meta(obj):
-    if hasattr(obj, "__meta__"): return obj.__meta__
-    else:                        return None
+    return obj.__meta__ if hasattr(obj, "__meta__") else None
 
 
 # Atoms functions
